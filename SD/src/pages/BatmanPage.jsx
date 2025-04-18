@@ -21,7 +21,6 @@ const BatmanPage = () => {
     setErrorMessage('');
     
     try {
-      // Call the backend to process the YouTube video (server1.py)
       const response = await fetch('http://localhost:5001/transcribe', {
         method: 'POST',
         headers: {
@@ -38,38 +37,32 @@ const BatmanPage = () => {
       const data = await response.json();
       console.log("Response from Batman API:", data);
       
-      // Extract video ID for thumbnail
       const videoId = extractVideoId(youtubeUrl);
       if (videoId) {
         setVideoThumbnail(`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`);
       }
       
-      // Set video title if available
       if (data.video_info && data.video_info.title) {
         setVideoTitle(data.video_info.title);
       } else {
         setVideoTitle("Analyzed YouTube Video");
       }
       
-      // Set trust score if available
       if (data.video_info && typeof data.video_info.trust_score === 'number') {
         setTrustScore(data.video_info.trust_score);
       } else if (data.analysis_summary && typeof data.analysis_summary.trust_score === 'number') {
         setTrustScore(data.analysis_summary.trust_score);
       } else {
-        // Calculate trust score based on verified claims if available
         const trueCount = (data.verified_claims || []).filter(c => c.result === 'TRUE').length;
         const totalClaims = (data.verified_claims || []).length || 1;
         const calculatedScore = ((trueCount / totalClaims) * 10).toFixed(1);
         setTrustScore(calculatedScore);
       }
       
-      // Save transcript if available
       if (data.analysis_summary && data.analysis_summary.transcript) {
         setTranscript(data.analysis_summary.transcript);
       }
       
-      // Process the verified claims for frontend display
       if (data.verified_claims && data.verified_claims.length > 0) {
         const processedChecks = data.verified_claims.map(item => ({
           claim: item.claim,
@@ -83,7 +76,6 @@ const BatmanPage = () => {
         
         setFactChecks(processedChecks);
       } else {
-        // Fallback if no claims were found
         setFactChecks([{
           claim: "No specific factual claims were identified in this video.",
           assessment: "UNVERIFIED",
@@ -103,10 +95,8 @@ const BatmanPage = () => {
     }
   };
   
-  // Extract video ID from YouTube URL
   const extractVideoId = (url) => {
     try {
-      // Simplified robust regex for YouTube ID extraction
       const regex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
       const match = url.match(regex);
       return match ? match[1] : null;
@@ -116,7 +106,6 @@ const BatmanPage = () => {
     }
   };
   
-  // Map backend result to frontend assessment terminology
   const mapResultToAssessment = (result) => {
     switch (result) {
       case 'TRUE': return 'ACCURATE';
@@ -126,7 +115,6 @@ const BatmanPage = () => {
     }
   };
   
-  // Map backend result to frontend type for styling
   const mapResultToType = (result) => {
     switch (result) {
       case 'TRUE': return 'true';
@@ -136,7 +124,6 @@ const BatmanPage = () => {
     }
   };
   
-  // Generate explanation text based on claim and result for better UX
   const generateExplanation = (claim, result) => {
     switch (result) {
       case 'TRUE':
