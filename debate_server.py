@@ -7,17 +7,14 @@ import traceback
 import os
 import re
 
-# Configure the app
 app = Flask(__name__)
 CORS(app)
 
-# API configuration
 GROQ_API_KEY = ""
 GROQ_API_URL = ""
-MODEL_NAME = ""  # Corrected model name
+MODEL_NAME = ""  
 SERPER_API_KEY = ""
 
-# System prompts
 DEBATE_SYSTEM_PROMPT = """You are a skilled debate opponent participating in a structured debate.
 Your role is to:
 1. Present compelling counterarguments to the user's position
@@ -77,7 +74,6 @@ If there are no verifiable factual claims, return:
 Remember: Focus only on FACTUAL claims that can be objectively verified through research.
 """
 
-# Helper functions
 def call_groq_api(messages, model=MODEL_NAME, temperature=0.7, max_tokens=800):
     """
     Make a call to the Groq API with the provided messages
@@ -122,7 +118,7 @@ def search_with_serper(query):
         }
         payload = {
             'q': query,
-            'num': 5  # Limit to top 5 results for efficiency
+            'num': 5 
         }
         
         response = requests.post(url, headers=headers, json=payload)
@@ -158,9 +154,7 @@ def extract_factual_claims(text):
         
         result = response['choices'][0]['message']['content']
         
-        # Extract JSON from the response
         try:
-            # Find JSON in the response
             json_match = re.search(r'({[\s\S]*})', result)
             if json_match:
                 json_str = json_match.group(1)
@@ -190,7 +184,6 @@ def verify_factual_claims(claims):
         
         print(f"Verifying claim: {claim}")
         
-        # Search for information about the claim
         search_results = search_with_serper(search_query)
         
         if not search_results or 'organic' not in search_results or len(search_results['organic']) == 0:
@@ -203,7 +196,6 @@ def verify_factual_claims(claims):
             })
             continue
         
-        # Prepare a summary of the search results
         search_summary = []
         sources = []
         
@@ -219,7 +211,6 @@ def verify_factual_claims(claims):
                 "link": link
             })
         
-        # Use Groq to evaluate the claim based on search results
         eval_messages = [
             {"role": "system", "content": """You are a fact-checking assistant. Your task is to evaluate the factual accuracy of a claim based on search results.
 Provide a concise assessment indicating whether the claim is TRUE, FALSE, or UNVERIFIED.
@@ -244,7 +235,6 @@ Return your response as a valid JSON object with the following fields:
         
         evaluation = response['choices'][0]['message']['content']
         
-        # Extract JSON from the evaluation
         try:
             json_match = re.search(r'({[\s\S]*})', evaluation)
             if json_match:
@@ -264,7 +254,6 @@ Return your response as a valid JSON object with the following fields:
                     "sources": sources
                 })
             else:
-                # If JSON parsing fails, try to extract status manually
                 status = "UNVERIFIED"
                 reason = "Could not determine from search results"
                 
@@ -273,7 +262,6 @@ Return your response as a valid JSON object with the following fields:
                 elif "FALSE" in evaluation.upper():
                     status = "FALSE"
                 
-                # Extract a reason if possible
                 reason_match = re.search(r'reason:?\s*([^\n]+)', evaluation, re.IGNORECASE)
                 if reason_match:
                     reason = reason_match.group(1)
@@ -297,7 +285,6 @@ Return your response as a valid JSON object with the following fields:
     
     return results
 
-# Debate API routes
 @app.route('/api/debate/start', methods=['POST'])
 def start_debate():
     """Start a new debate with the given topic"""
@@ -310,7 +297,6 @@ def start_debate():
     print(f"Starting new debate on topic: {topic}")
     
     try:
-        # Generate the AI's opening statement
         messages = [
             {"role": "system", "content": DEBATE_SYSTEM_PROMPT.format(topic=topic)},
             {"role": "user", "content": f"Let's debate the topic: {topic}. Please provide your opening statement, taking the opposing view to stimulate debate."}
@@ -327,7 +313,7 @@ def start_debate():
             "success": True,
             "topic": topic,
             "opening_statement": ai_message,
-            "debate_id": str(int(time.time())),  # Simple ID generation
+            "debate_id": str(int(time.time())),  
             "timestamp": time.time()
         })
         
@@ -347,28 +333,23 @@ def debate_respond():
     topic = data['topic']
     messages = data['messages']
     
-    # Validate the message format
     if not all(isinstance(m, dict) and 'role' in m and 'content' in m for m in messages):
         return jsonify({"error": "Invalid message format"}), 400
     
     try:
-        # Get the latest user message
         user_messages = [m for m in messages if m['role'] == 'user']
         if not user_messages:
             return jsonify({"error": "No user messages found"}), 400
         
         latest_user_message = user_messages[-1]['content']
         
-        # Extract factual claims from the user message
         factual_claims = extract_factual_claims(latest_user_message)
         
-        # If factual claims are found, verify them
         fact_check_results = []
         if factual_claims:
             print(f"Found {len(factual_claims)} factual claims to verify")
             fact_check_results = verify_factual_claims(factual_claims)
         
-        # Add factual verification information to the system prompt if available
         system_prompt = DEBATE_SYSTEM_PROMPT.format(topic=topic)
         if fact_check_results:
             system_prompt += "\n\nFact-check results for claims in the user's last message (USE THIS INFORMATION IN YOUR RESPONSE):\n"
@@ -382,12 +363,10 @@ def debate_respond():
                     for source in result['sources'][:2]:  # Limit to 2 sources
                         system_prompt += f"- {source['title']}\n"
         
-        # Prepare messages for the API
         formatted_messages = [
             {"role": "system", "content": system_prompt}
         ]
         
-        # Add the conversation history
         for message in messages:
             formatted_messages.append({
                 "role": message['role'],
@@ -425,7 +404,6 @@ def judge_debate():
     messages = data['messages']
     
     try:
-        # Format the debate transcript for the judge
         debate_transcript = ""
         for idx, message in enumerate(messages):
             if message['role'] == 'system':
@@ -434,7 +412,6 @@ def judge_debate():
             speaker = "Human" if message['role'] == 'user' else "AI"
             debate_transcript += f"{speaker}: {message['content']}\n\n"
         
-        # Prepare judge prompt
         judge_messages = [
             {"role": "system", "content": JUDGE_SYSTEM_PROMPT.format(topic=topic)},
             {"role": "user", "content": f"Topic: {topic}\n\nDebate Transcript:\n{debate_transcript}\n\nPlease judge this debate. Determine a winner based on the quality of argumentation, provide a score for each side (on a scale from 50-100), explain your reasoning in detail, and offer constructive feedback for both participants."}
@@ -447,14 +424,11 @@ def judge_debate():
         
         judgment_text = response['choices'][0]['message']['content']
         
-        # Process judgment to extract scores and winner
         try:
-            # Try to extract scores using simple heuristics
-            human_score, ai_score = 50, 50  # Default scores
+            human_score, ai_score = 50, 50  
             winner = None
             
             if "human score" in judgment_text.lower() or "user score" in judgment_text.lower():
-                # Look for patterns like "Human score: 85" or "User score: 85"
                 for line in judgment_text.split('\n'):
                     line = line.lower()
                     if "human score" in line or "user score" in line:
@@ -468,13 +442,11 @@ def judge_debate():
                         except:
                             pass
             
-            # Determine winner based on scores or mention in text
             if human_score > ai_score:
                 winner = 'user'
             elif ai_score > human_score:
                 winner = 'ai'
             else:
-                # Try to determine from text
                 if "human wins" in judgment_text.lower() or "user wins" in judgment_text.lower():
                     winner = 'user'
                 elif "ai wins" in judgment_text.lower():
@@ -482,7 +454,6 @@ def judge_debate():
                 else:
                     winner = 'tie'
             
-            # Extract reasoning and feedback
             reasoning = judgment_text
             improvements = ""
             
@@ -501,7 +472,6 @@ def judge_debate():
             
         except Exception as e:
             print(f"Error parsing judgment: {e}")
-            # Fallback judgment
             judgment = {
                 "winner": "tie",
                 "userScore": 75,
@@ -522,7 +492,6 @@ def judge_debate():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
-# Chatbot API route
 @app.route('/api/chatbot/message', methods=['POST'])
 def chatbot_message():
     """Process a message for the chatbot"""
@@ -534,12 +503,10 @@ def chatbot_message():
     messages = data['messages']
     
     try:
-        # Prepare messages for the API
         formatted_messages = [
             {"role": "system", "content": CHATBOT_SYSTEM_PROMPT}
         ]
         
-        # Add the conversation history
         for message in messages:
             if isinstance(message, dict) and 'role' in message and 'content' in message:
                 formatted_messages.append({
