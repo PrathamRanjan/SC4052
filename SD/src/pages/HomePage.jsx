@@ -1,11 +1,8 @@
 import { Link } from 'react-router-dom';
 import { Shield, Search, BookOpen, BarChart2, Scale } from 'lucide-react';
-// Import images from assets folder
 import batmanSilhouette from '../assets/batman.png';
 import sherlockSilhouette from '../assets/sher.png';
 import yodaSilhouette from '../assets/yoda.webp';
-// We'll need new images for Vision and the Debate Chamber
-// For now, let's assume we have them called vision.png and debate.png
 import visionSilhouette from '../assets/vision.png';
 import debateSilhouette from '../assets/debate.png';
 
